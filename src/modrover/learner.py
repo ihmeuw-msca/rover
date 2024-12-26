@@ -9,6 +9,7 @@ from numpy.typing import NDArray
 from pandas import DataFrame
 from regmod.data import Data
 from regmod.models import Model as RegmodModel
+from regmod.prior import GaussianPrior
 from regmod.variable import Variable
 from scipy.stats import norm
 
@@ -51,18 +52,26 @@ class Learner:
         param_specs: dict[str, dict],
         weights: str = "weights",
         get_score: Callable | None = None,
+        lam_ridge: float = 0.0,
     ) -> None:
         self.model_class = model_class
         self.obs = obs
         self.main_param = main_param
         self.weights = weights
         self.get_score = get_score
+        self.lam_ridge = lam_ridge
 
         # convert str to Variable
         for param_spec in param_specs.values():
-            param_spec["variables"] = list(
-                map(Variable, param_spec["variables"])
-            )
+            priors = []
+            if self.lam_ridge > 0.0:
+                priors.append(
+                    GaussianPrior(mean=0.0, sd=1.0 / np.sqrt(self.lam_ridge))
+                )
+            param_spec["variables"] = [
+                Variable(name, priors=priors)
+                for name in param_spec["variables"]
+            ]
         self.param_specs = param_specs
 
         # initialize null model
@@ -243,9 +252,8 @@ class Learner:
         model = model or self.model
         if self.get_score is None:
             model.attach_df(data)
-            score = np.exp(
-                -model.objective(model.opt_coefs) / model.data.weights.sum()
-            )
+            pearson_r2 = model.get_pearson_residuals(model.opt_coefs) ** 2
+            score = np.exp(-np.sqrt(np.mean(pearson_r2)))
             model = _detach_df(model)
         else:
             score = self.get_score(

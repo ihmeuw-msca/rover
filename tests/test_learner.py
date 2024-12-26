@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
 import pytest
-from modrover.globals import model_type_dict
+
+from modrover.globals import get_rmse, model_type_dict
 from modrover.learner import Learner, ModelStatus
 
 
@@ -66,6 +67,7 @@ def test_two_param_model_fit(dataset):
                 "variables": ["intercept", "var_d", "var_e"],
             },
         },
+        get_score=get_rmse,
     )
 
     # Should have 2 mu columns, 2 sigma columns, and the intercept

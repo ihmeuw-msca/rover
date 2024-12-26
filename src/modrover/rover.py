@@ -56,7 +56,8 @@ class Rover:
         param_specs: dict[str, dict] | None = None,
         weights: str = "weights",
         holdouts: list[str] | None = None,
-        get_score: Callable = get_rmse,
+        get_score: Callable | None = get_rmse,
+        lam_ridge: float = 0.0,
     ) -> None:
         self.model_type = self._as_model_type(model_type)
         self.obs = obs
@@ -68,6 +69,7 @@ class Rover:
         self.weights = weights
         self.holdouts = holdouts
         self.get_score = get_score
+        self.lam_ridge = lam_ridge
 
         self.learners: dict[LearnerID, Learner] = {}
 
@@ -408,6 +410,7 @@ class Rover:
             param_specs,
             weights=self.weights,
             get_score=self.get_score,
+            lam_ridge=self.lam_ridge,
         )
 
     # explore ==================================================================
@@ -490,7 +493,7 @@ class Rover:
         if coef_bounds:
             coef_valid = []
             for cov, bounds in coef_bounds.items():
-                if not any(map(cov.startswith, self.params)):
+                if not any([cov.startswith(p + "_") for p in self.params]):
                     cov = "_".join([self.main_param, cov])
                 coef_valid.append(
                     (df[cov] >= bounds[0]) & (df[cov] <= bounds[1])
